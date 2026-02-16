@@ -49,6 +49,12 @@ def upgrade() -> None:
         name="insightimpact",
     )
 
+    # Explicitly create enum types before the table (asyncpg requires this)
+    bind = op.get_bind()
+    insight_type.create(bind, checkfirst=True)
+    insight_status.create(bind, checkfirst=True)
+    insight_impact.create(bind, checkfirst=True)
+
     op.create_table(
         "insights",
         sa.Column("id", postgresql.UUID(as_uuid=False), primary_key=True),
@@ -114,6 +120,11 @@ def downgrade() -> None:
         "dismissed",
         name="insightstatus",
     )
+
+    # Explicitly create enum types before the table (asyncpg requires this)
+    bind = op.get_bind()
+    insight_type.create(bind, checkfirst=True)
+    insight_status.create(bind, checkfirst=True)
 
     op.create_table(
         "insights",
