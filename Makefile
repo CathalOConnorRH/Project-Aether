@@ -129,7 +129,9 @@ run-prod: migrate-container
 
 # Run migrations inside container (for production mode)
 migrate-container:
-	$(COMPOSE) up -d postgres
+	@podman start aether-postgres 2>/dev/null \
+		&& echo "  PostgreSQL: already running (skipped)" \
+		|| $(COMPOSE) up -d postgres
 	@echo "Waiting for PostgreSQL..."
 	@sleep 3
 	uv run alembic upgrade head
@@ -146,7 +148,13 @@ down:
 # Use these if you want more control over what's running
 
 up:
-	$(COMPOSE) up -d postgres mlflow
+	@echo "Starting infrastructure..."
+	@podman start aether-postgres 2>/dev/null \
+		&& echo "  PostgreSQL: already running (skipped)" \
+		|| $(COMPOSE) up -d postgres
+	@podman start aether-mlflow 2>/dev/null \
+		&& echo "  MLflow: already running (skipped)" \
+		|| $(COMPOSE) up -d mlflow
 	@echo "Waiting for services..."
 	@sleep 3
 	@echo ""
