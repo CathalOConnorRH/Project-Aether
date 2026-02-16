@@ -20,6 +20,7 @@ class HAClientConfig(BaseModel):
     ha_url_remote: str | None = Field(None, description="Home Assistant remote URL (fallback)")
     ha_token: str = Field(..., description="Home Assistant token")
     timeout: int = Field(default=30, description="Request timeout in seconds")
+    verify_ssl: bool = Field(default=True, description="Verify SSL certificates for HA connections")
     url_preference: str = Field(
         default="auto",
         description="Which URL to use: 'auto' (local then remote), 'local', or 'remote'",
@@ -122,6 +123,7 @@ class BaseHAClient:
                 ha_url=ha_url,
                 ha_url_remote=settings.ha_url_remote,
                 ha_token=ha_token,
+                verify_ssl=settings.ha_verify_ssl,
             )
 
         # Fallback to env vars
@@ -129,6 +131,7 @@ class BaseHAClient:
             ha_url=settings.ha_url,
             ha_url_remote=settings.ha_url_remote,
             ha_token=settings.ha_token.get_secret_value(),
+            verify_ssl=settings.ha_verify_ssl,
         )
 
     @_trace_ha_call("ha.connect")
@@ -144,7 +147,9 @@ class BaseHAClient:
         errors = []
         for url in urls_to_try:
             try:
-                async with httpx.AsyncClient(timeout=5) as client:
+                async with httpx.AsyncClient(
+                    timeout=5, verify=self.config.verify_ssl
+                ) as client:
                     response = await client.get(
                         f"{url}/api/",
                         headers={"Authorization": f"Bearer {self.config.ha_token}"},
@@ -213,6 +218,7 @@ class BaseHAClient:
 
             self._http_client = httpx.AsyncClient(
                 timeout=self.config.timeout,
+                verify=self.config.verify_ssl,
                 limits=httpx.Limits(
                     max_keepalive_connections=20,
                     max_connections=100,

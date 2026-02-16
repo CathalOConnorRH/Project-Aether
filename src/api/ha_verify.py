@@ -78,12 +78,15 @@ def _validate_url_not_ssrf(url: str) -> None:
             )
 
 
-async def verify_ha_connection(ha_url: str, ha_token: str) -> dict:
+async def verify_ha_connection(
+    ha_url: str, ha_token: str, verify_ssl: bool = True
+) -> dict:
     """Verify a Home Assistant connection by calling GET {ha_url}/api/.
 
     Args:
         ha_url: The HA instance URL (e.g. "http://ha.local:8123").
         ha_token: The HA long-lived access token.
+        verify_ssl: Whether to verify SSL certificates (default True).
 
     Returns:
         The HA API response body (contains version info) on success.
@@ -100,7 +103,7 @@ async def verify_ha_connection(ha_url: str, ha_token: str) -> dict:
     _validate_url_not_ssrf(base_url)
 
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=10, verify=verify_ssl) as client:
             response = await client.get(
                 f"{base_url}/api/",
                 headers={"Authorization": f"Bearer {ha_token}"},

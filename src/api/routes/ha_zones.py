@@ -125,13 +125,16 @@ async def list_zones() -> list[ZoneResponse]:
 async def create_zone(body: ZoneCreate) -> ZoneResponse:
     """Create a new HA zone. Validates connectivity before saving."""
     # Validate HA connection (SSRF-protected)
-    await verify_ha_connection(body.ha_url, body.ha_token)
+    settings = _settings_mod.get_settings()
+    await verify_ha_connection(
+        body.ha_url, body.ha_token, verify_ssl=settings.ha_verify_ssl
+    )
 
     # If remote URL provided, try it too (but don't fail on it)
     if body.ha_url_remote:
         with suppress(HTTPException):
             await verify_ha_connection(
-                body.ha_url_remote, body.ha_token
+                body.ha_url_remote, body.ha_token, verify_ssl=settings.ha_verify_ssl
             )  # Remote is optional; it may not be reachable from server
 
     secret = _get_secret()
@@ -176,7 +179,10 @@ async def update_zone(zone_id: str, body: ZoneUpdate) -> ZoneResponse:
                 from src.dal.system_config import decrypt_token
 
                 test_token = decrypt_token(existing.ha_token_encrypted, secret)
-            await verify_ha_connection(test_url, test_token)
+            settings = _settings_mod.get_settings()
+            await verify_ha_connection(
+                test_url, test_token, verify_ssl=settings.ha_verify_ssl
+            )
 
     async with get_session() as session:
         repo = HAZoneRepository(session)
@@ -260,8 +266,11 @@ async def test_zone(zone_id: str) -> ZoneTestResult:
     local_ok = False
     local_version = None
     local_error = None
+    settings = _settings_mod.get_settings()
     try:
-        result = await verify_ha_connection(ha_url, ha_token)
+        result = await verify_ha_connection(
+            ha_url, ha_token, verify_ssl=settings.ha_verify_ssl
+        )
         local_ok = True
         local_version = result.get("version")
     except HTTPException as e:
@@ -273,7 +282,9 @@ async def test_zone(zone_id: str) -> ZoneTestResult:
     remote_error = None
     if ha_url_remote:
         try:
-            result = await verify_ha_connection(ha_url_remote, ha_token)
+            result = await verify_ha_connection(
+                ha_url_remote, ha_token, verify_ssl=settings.ha_verify_ssl
+            )
             remote_ok = True
             remote_version = result.get("version")
         except HTTPException as e:

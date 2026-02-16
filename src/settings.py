@@ -50,6 +50,10 @@ class Settings(BaseSettings):
         description="Home Assistant long-lived access token",
         validation_alias=AliasChoices("ha_token", "hass_token"),
     )
+    ha_verify_ssl: bool = Field(
+        default=True,
+        description="Verify SSL certificates when connecting to Home Assistant",
+    )
 
     # LLM Configuration (Research Decision #6)
     # Supports: openai, openrouter, google, ollama, together, groq, or custom

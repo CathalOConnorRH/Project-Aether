@@ -152,7 +152,9 @@ async def setup(body: SetupRequest, response: Response) -> SetupResponse:
             )
 
         # Validate HA connection (raises HTTPException on failure)
-        await verify_ha_connection(body.ha_url, body.ha_token)
+        await verify_ha_connection(
+            body.ha_url, body.ha_token, verify_ssl=settings.ha_verify_ssl
+        )
 
         # Encrypt HA token
         jwt_secret = _get_jwt_secret(settings)
@@ -236,7 +238,7 @@ async def login_with_ha_token(body: HATokenLoginRequest, response: Response) -> 
         )
 
     # Validate the token against HA
-    await verify_ha_connection(ha_url, body.ha_token)
+    await verify_ha_connection(ha_url, body.ha_token, verify_ssl=settings.ha_verify_ssl)
 
     # Issue JWT
     username = settings.auth_username

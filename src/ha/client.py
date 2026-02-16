@@ -95,6 +95,7 @@ def _resolve_zone_config(zone_id: str) -> HAClientConfig | None:
                     ha_url_remote=ha_url_remote,
                     ha_token=ha_token,
                     url_preference=url_preference,
+                    verify_ssl=settings.ha_verify_ssl,
                 )
 
         try:
