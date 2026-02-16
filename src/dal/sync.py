@@ -8,6 +8,21 @@ from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
+
+def _strip_null_bytes(obj: Any) -> Any:
+    """Recursively strip \\u0000 (null bytes) from strings in dicts/lists.
+
+    PostgreSQL text and JSONB columns cannot store null bytes; HA entities
+    occasionally include them in attribute values.
+    """
+    if isinstance(obj, str):
+        return obj.replace("\x00", "")
+    if isinstance(obj, dict):
+        return {k: _strip_null_bytes(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_strip_null_bytes(item) for item in obj]
+    return obj
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.dal.areas import AreaRepository
@@ -275,22 +290,24 @@ class DiscoverySyncService:
                 internal_device_id = device_id_mapping.get(entity.device_id)
 
             data_list.append(
-                {
-                    "entity_id": entity.entity_id,
-                    "domain": entity.domain,
-                    "name": entity.name,
-                    "state": entity.state,
-                    "attributes": entity.attributes,
-                    "area_id": internal_area_id,
-                    "device_id": internal_device_id,
-                    "device_class": metadata.get("device_class"),
-                    "unit_of_measurement": metadata.get("unit_of_measurement"),
-                    "supported_features": metadata.get("supported_features", 0),
-                    "state_class": metadata.get("state_class"),
-                    "icon": metadata.get("icon"),
-                    "entity_category": metadata.get("entity_category"),
-                    "platform": metadata.get("platform"),
-                }
+                _strip_null_bytes(
+                    {
+                        "entity_id": entity.entity_id,
+                        "domain": entity.domain,
+                        "name": entity.name,
+                        "state": entity.state,
+                        "attributes": entity.attributes,
+                        "area_id": internal_area_id,
+                        "device_id": internal_device_id,
+                        "device_class": metadata.get("device_class"),
+                        "unit_of_measurement": metadata.get("unit_of_measurement"),
+                        "supported_features": metadata.get("supported_features", 0),
+                        "state_class": metadata.get("state_class"),
+                        "icon": metadata.get("icon"),
+                        "entity_category": metadata.get("entity_category"),
+                        "platform": metadata.get("platform"),
+                    }
+                )
             )
 
         # Batch upsert all entities
@@ -344,15 +361,17 @@ class DiscoverySyncService:
                 )
 
             await self.automation_repo.upsert(
-                {
-                    "ha_automation_id": ha_automation_id,
-                    "entity_id": entity.entity_id,
-                    "alias": attrs.get("friendly_name", entity.name),
-                    "state": entity.state or "off",
-                    "mode": attrs.get("mode", "single"),
-                    "last_triggered": attrs.get("last_triggered"),
-                    "config": config,
-                }
+                _strip_null_bytes(
+                    {
+                        "ha_automation_id": ha_automation_id,
+                        "entity_id": entity.entity_id,
+                        "alias": attrs.get("friendly_name", entity.name),
+                        "state": entity.state or "off",
+                        "mode": attrs.get("mode", "single"),
+                        "last_triggered": attrs.get("last_triggered"),
+                        "config": config,
+                    }
+                )
             )
             stats["automations_synced"] += 1
 
@@ -384,16 +403,18 @@ class DiscoverySyncService:
                 )
 
             await self.script_repo.upsert(
-                {
-                    "entity_id": entity.entity_id,
-                    "alias": attrs.get("friendly_name", entity.name),
-                    "state": entity.state or "off",
-                    "mode": attrs.get("mode", "single"),
-                    "icon": attrs.get("icon"),
-                    "last_triggered": attrs.get("last_triggered"),
-                    "sequence": sequence,
-                    "fields": fields,
-                }
+                _strip_null_bytes(
+                    {
+                        "entity_id": entity.entity_id,
+                        "alias": attrs.get("friendly_name", entity.name),
+                        "state": entity.state or "off",
+                        "mode": attrs.get("mode", "single"),
+                        "icon": attrs.get("icon"),
+                        "last_triggered": attrs.get("last_triggered"),
+                        "sequence": sequence,
+                        "fields": fields,
+                    }
+                )
             )
             stats["scripts_synced"] += 1
 
@@ -409,11 +430,13 @@ class DiscoverySyncService:
             seen_scene_ids.add(entity.entity_id)
 
             await self.scene_repo.upsert(
-                {
-                    "entity_id": entity.entity_id,
-                    "name": attrs.get("friendly_name", entity.name),
-                    "icon": attrs.get("icon"),
-                }
+                _strip_null_bytes(
+                    {
+                        "entity_id": entity.entity_id,
+                        "name": attrs.get("friendly_name", entity.name),
+                        "icon": attrs.get("icon"),
+                    }
+                )
             )
             stats["scenes_synced"] += 1
 
@@ -471,22 +494,24 @@ class DiscoverySyncService:
             if getattr(entity, "device_id", None):
                 internal_device_id = device_id_mapping.get(entity.device_id)
 
-            entity_data = {
-                "entity_id": entity.entity_id,
-                "domain": entity.domain,
-                "name": entity.name,
-                "state": entity.state,
-                "attributes": getattr(entity, "attributes", None),
-                "area_id": internal_area_id,
-                "device_id": internal_device_id,
-                "device_class": metadata.get("device_class"),
-                "unit_of_measurement": metadata.get("unit_of_measurement"),
-                "supported_features": metadata.get("supported_features", 0),
-                "state_class": metadata.get("state_class"),
-                "icon": metadata.get("icon"),
-                "entity_category": metadata.get("entity_category"),
-                "platform": metadata.get("platform"),
-            }
+            entity_data = _strip_null_bytes(
+                {
+                    "entity_id": entity.entity_id,
+                    "domain": entity.domain,
+                    "name": entity.name,
+                    "state": entity.state,
+                    "attributes": getattr(entity, "attributes", None),
+                    "area_id": internal_area_id,
+                    "device_id": internal_device_id,
+                    "device_class": metadata.get("device_class"),
+                    "unit_of_measurement": metadata.get("unit_of_measurement"),
+                    "supported_features": metadata.get("supported_features", 0),
+                    "state_class": metadata.get("state_class"),
+                    "icon": metadata.get("icon"),
+                    "entity_category": metadata.get("entity_category"),
+                    "platform": metadata.get("platform"),
+                }
+            )
 
             _, created = await self.entity_repo.upsert(entity_data)
             if created:
